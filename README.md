@@ -1,5 +1,7 @@
 # ⚖️ AI Lawyer
 
+![Logo](assets/logo.png)
+
 AI Lawyer is a Retrieval-Augmented Generation (RAG) application designed to help users analyze legal documents, ask questions about uploaded files, generate document summaries, and create downloadable reports.
 
 The system combines semantic document retrieval with a large language model to provide context-aware responses grounded in the uploaded legal documents.
