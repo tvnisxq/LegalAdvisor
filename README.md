@@ -27,8 +27,6 @@ AI Lawyer enables users to:
 ![Home Screen](assets/homescreen.png)
 
 
-
-
 ### Document Summary
 
 <!-- Add screenshot here -->
