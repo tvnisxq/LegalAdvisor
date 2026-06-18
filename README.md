@@ -26,11 +26,17 @@ AI Lawyer enables users to:
 
 ![Home Screen](assets/homescreen.png)
 
+
+
+
 ### Document Summary
 
 <!-- Add screenshot here -->
 
 ![Document Summary](assets/summary.png)
+
+
+
 
 ### Question Answering
 
@@ -38,11 +44,17 @@ AI Lawyer enables users to:
 
 ![Question Answering](assets/q&a.png)
 
+
+
+
 ### Generated Report
 
 <!-- Add screenshot here -->
 
 ![Generated Report](assets/report.png)
+
+
+
 
 ---
 
