@@ -1,4 +1,4 @@
-# ⚖️ AI Lawyer
+#           ⚖️ AI Lawyer
 
 <p align="center">
   <img src="assets/logo.png" alt="Logo">
