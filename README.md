@@ -92,15 +92,25 @@ AI Lawyer enables users to:
 ```text
 AI-Lawyer/
 │
-├── frontend.py
-├── rag_pipeline.py
-├── vector_database.py
-├── requirements.txt
-├── README.md
+├── assets/
 │
-├── data/
-├── uploads/
-└── utils/
+├── try_on_pdfs/
+│
+├── vectorstore/
+│
+├── .devcontainer/
+│
+├── .env
+├── guide.pdf
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── runtime.txt
+│
+├── frontend.py
+├── main.py
+├── rag_pipeline.py
+└── vector_database.py
 ```
 
 ## Installation
