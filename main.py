@@ -1,12 +1,16 @@
+import os
 import streamlit as st
 
 from langchain_community.document_loaders import PDFPlumberLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.vectorstores import FAISS
+from langchain_pinecone import PineconeVectorStore
+from pinecone import Pinecone, ServerlessSpec
 from langchain_groq import ChatGroq
+from dotenv import load_dotenv
 
+load_dotenv()
 
 
 custom_prompt_template = """
@@ -19,15 +23,19 @@ Answer:
 """
 
 
-ollama_model_name="deepseek-r1:14b"
-embeddings = OllamaEmbeddings(model="deepseek-r1:14b")
-FAISS_DB_PATH="vectorstore/db_faiss"
-
-
 pdfs_directory = 'pdfs/'
-llm_model=ChatGroq(model="deepseek-r1-distill-llama-70b")
+llm_model = ChatGroq(model="deepseek-r1-distill-llama-70b")
+
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_DIMENSION = 384  # all-MiniLM-L6-v2 output size
+
+PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
+PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "ai-lawyer")
+
 
 def upload_pdf(file):
+    if not os.path.exists(pdfs_directory):
+        os.makedirs(pdfs_directory)
     with open(pdfs_directory + file.name, "wb") as f:
         f.write(file.getbuffer())
 
@@ -38,29 +46,46 @@ def load_pdf(file_path):
     return documents
 
 
-def create_chunks(documents): 
+def create_chunks(documents):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size = 1000,
-        chunk_overlap = 200,
-        add_start_index = True
+        chunk_size=1000,
+        chunk_overlap=200,
+        add_start_index=True
     )
     text_chunks = text_splitter.split_documents(documents)
     return text_chunks
 
 
-def get_embedding_model(ollama_model_name):
-    embeddings = OllamaEmbeddings(model=ollama_model_name)
+def get_embedding_model():
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     return embeddings
 
 
-def create_vector_store(db_faiss_path, text_chunks, ollama_model_name):
-    faiss_db=FAISS.from_documents(text_chunks, get_embedding_model(ollama_model_name))
-    faiss_db.save_local(db_faiss_path)
-    return faiss_db
+def get_pinecone_index():
+    pc = Pinecone(api_key=PINECONE_API_KEY)
+    existing_indexes = [idx["name"] for idx in pc.list_indexes()]
+
+    if PINECONE_INDEX_NAME not in existing_indexes:
+        pc.create_index(
+            name=PINECONE_INDEX_NAME,
+            dimension=EMBEDDING_DIMENSION,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+        )
+
+    return pc.Index(PINECONE_INDEX_NAME)
 
 
-def retrieve_docs(faiss_db, query):
-    return faiss_db.similarity_search(query)
+def create_vector_store(text_chunks):
+    embeddings = get_embedding_model()
+    pinecone_index = get_pinecone_index()
+    vector_store = PineconeVectorStore(index=pinecone_index, embedding=embeddings)
+    vector_store.add_documents(text_chunks)
+    return vector_store
+
+
+def retrieve_docs(vector_store, query):
+    return vector_store.similarity_search(query, k=5)
 
 
 def get_context(documents):
@@ -82,7 +107,7 @@ uploaded_file = st.file_uploader(
 )
 
 
-user_query = st.text_area("Enter your prompt: ", height=150 , placeholder= "Ask Anything!")
+user_query = st.text_area("Enter your prompt: ", height=150, placeholder="Ask Anything!")
 
 ask_question = st.button("Ask AI Lawyer")
 
@@ -92,14 +117,13 @@ if ask_question:
         upload_pdf(uploaded_file)
         documents = load_pdf(pdfs_directory + uploaded_file.name)
         text_chunks = create_chunks(documents)
-        faiss_db = create_vector_store(FAISS_DB_PATH, text_chunks, ollama_model_name)
+        vector_store = create_vector_store(text_chunks)
 
-        retrieved_docs=retrieve_docs(faiss_db, user_query)
-        response=answer_query(documents=retrieved_docs, model=llm_model, query=user_query)
+        retrieved_docs = retrieve_docs(vector_store, user_query)
+        response = answer_query(documents=retrieved_docs, model=llm_model, query=user_query)
 
         st.chat_message("user").write(user_query)
         st.chat_message("AI Lawyer").write(response)
 
     else:
         st.error("Kindly upload a valid PDF file and/or ask a valid Question!")
-

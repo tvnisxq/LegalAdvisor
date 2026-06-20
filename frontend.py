@@ -64,26 +64,31 @@ if "user_queries" not in st.session_state:
     st.session_state.user_queries = []
 if "ai_responses" not in st.session_state:
     st.session_state.ai_responses = []
+if "indexed_file" not in st.session_state:
+    st.session_state.indexed_file = None
 
 # --- Upload PDF ---
 st.markdown("""
     <h1 style='text-align: center; color: #4CAF50;'>⚖️ AI Lawyer Chatbot</h1>
     <p style='text-align: center; font-size: 18px; color: #E0E0E0;'>
-        A RAG-based legal reasoning chatbot using DeepSeek and Ollama.
+        A RAG-based legal reasoning chatbot using Pinecone and Groq.
         Upload a legal document (PDF) and get AI-powered answers.
     </p>
 """, unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader("📂 Upload a legal document (PDF)", type="pdf", accept_multiple_files=False)
 
-from vector_database import index_pdf
-
 if uploaded_file:
     st.success(f"📄 Uploaded: {uploaded_file.name}")
 
-    # Index the uploaded document
-    file_path = upload_pdf(uploaded_file)  # Save file
-    index_pdf(file_path)  # Index file in FAISS
+    # Only index this file once per upload — Pinecone is a persistent store,
+    # so re-running this on every Streamlit rerun would re-insert duplicate
+    # vectors for the same document every time a button is clicked.
+    if st.session_state.indexed_file != uploaded_file.name:
+        with st.spinner("📌 Indexing document..."):
+            file_path = upload_pdf(uploaded_file)  # Save file
+            index_pdf(file_path)  # Index file in Pinecone
+        st.session_state.indexed_file = uploaded_file.name
 
     # Summarization Feature
     if st.button("📜 Summarize Document"):
@@ -107,12 +112,12 @@ if st.button("🔍 Ask AI Lawyer"):
         with st.spinner("⚡ Analyzing document and generating response..."):
             time.sleep(1)
             st.chat_message("user").write(user_query)
-            
+
             retrieved_docs = retrieve_docs(user_query, uploaded_file.name)
             response = answer_query(documents=retrieved_docs, model=llm_model, query=user_query)
-            
+
             st.chat_message("AI Lawyer").write(response)
-            
+
             # Store conversation in session state
             st.session_state.user_queries.append(user_query)
             st.session_state.ai_responses.append(response)
